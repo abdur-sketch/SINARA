@@ -1,0 +1,265 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum EmployeeInternalStatus {
+  GTY
+  CGTY
+  GTTY
+  TENDIK
+  TENAGA_PESANTREN
+}
+
+enum EmploymentRelationship {
+  PERMANENT
+  FIXED_TERM
+  PART_TIME
+  FREELANCE
+  OTHER
+}
+
+enum DocumentType {
+  APPOINTMENT_DECREE
+  CONTRACT
+  DIPLOMA
+  CERTIFICATE
+  ASSIGNMENT
+}
+
+model Organization {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String
+  code      String     @unique
+  isActive  Boolean    @default(true) @map("is_active")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  units     Unit[]
+  employees Employee[]
+  positions Position[]
+  users     User[]
+  roles     Role[]
+  auditLogs AuditLog[]
+
+  @@map("organizations")
+}
+
+model Unit {
+  id               String               @id @default(uuid()) @db.Uuid
+  organizationId   String               @map("organization_id") @db.Uuid
+  name             String
+  code             String
+  type             String
+  isActive         Boolean              @default(true) @map("is_active")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  primaryEmployees Employee[]
+  assignments      EmployeeAssignment[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, isActive])
+  @@map("units")
+}
+
+model Employee {
+  id             String                 @id @default(uuid()) @db.Uuid
+  organizationId String                 @map("organization_id") @db.Uuid
+  employeeNumber String                 @map("employee_number")
+  fullName       String                 @map("full_name")
+  gender         Gender
+  birthDate      DateTime?              @map("birth_date") @db.Date
+  email          String?
+  phone          String?
+  address        String?
+  lastEducation  String?                @map("last_education")
+  competencies   String?
+  startDate      DateTime               @map("start_date") @db.Date
+  internalStatus EmployeeInternalStatus @map("internal_status")
+  primaryUnitId  String                 @map("primary_unit_id") @db.Uuid
+  isActive       Boolean                @default(true) @map("is_active")
+  archivedAt     DateTime?              @map("archived_at")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  primaryUnit    Unit                   @relation(fields: [primaryUnitId], references: [id], onDelete: Restrict)
+  contracts      EmploymentContract[]
+  assignments    EmployeeAssignment[]
+  documents      EmployeeDocument[]
+  user           User?
+
+  @@unique([organizationId, employeeNumber])
+  @@index([organizationId, isActive])
+  @@index([primaryUnitId])
+  @@map("employees")
+}
+
+model EmploymentContract {
+  id               String                 @id @default(uuid()) @db.Uuid
+  organizationId   String                 @map("organization_id") @db.Uuid
+  employeeId       String                 @map("employee_id") @db.Uuid
+  relationshipType EmploymentRelationship @map("relationship_type")
+  startDate        DateTime               @map("start_date") @db.Date
+  endDate          DateTime?              @map("end_date") @db.Date
+  notes            String?
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+  employee         Employee               @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, endDate])
+  @@index([employeeId])
+  @@map("employment_contracts")
+}
+
+model Position {
+  id             String               @id @default(uuid()) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  name           String
+  code           String
+  isActive       Boolean              @default(true) @map("is_active")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  assignments    EmployeeAssignment[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, isActive])
+  @@map("positions")
+}
+
+model EmployeeAssignment {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  employeeId     String    @map("employee_id") @db.Uuid
+  unitId         String    @map("unit_id") @db.Uuid
+  positionId     String    @map("position_id") @db.Uuid
+  isPrimary      Boolean   @default(false) @map("is_primary")
+  effectiveFrom  DateTime  @map("effective_from") @db.Date
+  effectiveTo    DateTime? @map("effective_to") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  unit           Unit      @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  position       Position  @relation(fields: [positionId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, employeeId])
+  @@index([unitId, effectiveTo])
+  @@map("employee_assignments")
+}
+
+model EmployeeDocument {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  employeeId     String       @map("employee_id") @db.Uuid
+  type           DocumentType
+  title          String
+  storageKey     String       @unique @map("storage_key")
+  originalName   String       @map("original_name")
+  mimeType       String       @map("mime_type")
+  sizeBytes      Int          @map("size_bytes")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, employeeId])
+  @@map("employee_documents")
+}
+
+model User {
+  id                  String       @id @default(uuid()) @db.Uuid
+  organizationId      String       @map("organization_id") @db.Uuid
+  employeeId          String?      @unique @map("employee_id") @db.Uuid
+  email               String       @unique
+  name                String
+  passwordHash        String       @map("password_hash")
+  isActive            Boolean      @default(true) @map("is_active")
+  mfaEnabled          Boolean      @default(false) @map("mfa_enabled")
+  failedLoginAttempts Int          @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?    @map("locked_until")
+  passwordResetHash   String?      @map("password_reset_hash")
+  passwordResetExpiry DateTime?    @map("password_reset_expiry")
+  sessionVersion      Int          @default(1) @map("session_version")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee            Employee?    @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  roles               UserRole[]
+  auditLogs           AuditLog[]   @relation("ActorAuditLogs")
+
+  @@index([organizationId, isActive])
+  @@map("users")
+}
+
+model Role {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  name           String
+  description    String?
+  isSystem       Boolean          @default(false) @map("is_system")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  users          UserRole[]
+  permissions    RolePermission[]
+
+  @@unique([organizationId, name])
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  key         String           @unique
+  description String?
+  createdAt   DateTime         @default(now()) @map("created_at")
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId     String   @map("user_id") @db.Uuid
+  roleId     String   @map("role_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model AuditLog {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String?       @map("organization_id") @db.Uuid
+  actorId        String?       @map("actor_id") @db.Uuid
+  action         String
+  entityType     String        @map("entity_type")
+  entityId       String?       @map("entity_id")
+  metadata       Json?
+  ipAddress      String?       @map("ip_address")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actor          User?         @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}
