@@ -33,6 +33,7 @@ export async function POST(req: Request) {
   const organizationId = actor.session.user.organizationId;
   const roles = await db.role.findMany({ where: { id: { in: parsed.data.roleIds }, organizationId } });
   if (roles.length !== new Set(parsed.data.roleIds).size) return Response.json({ error: "Role tidak valid" }, { status: 400 });
+  if (roles.some(role => role.name === "PEGAWAI") && !parsed.data.employeeId) return Response.json({ error: "Role PEGAWAI wajib ditautkan ke data pegawai" }, { status: 400 });
   if (parsed.data.employeeId && !await db.employee.findFirst({ where: { id: parsed.data.employeeId, organizationId }, select: { id: true } })) return Response.json({ error: "Pegawai tidak valid" }, { status: 400 });
   const inviteToken = randomToken(32);
   const expiresAt = new Date(Date.now() + 24 * 60 * 60_000);

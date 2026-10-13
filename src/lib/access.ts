@@ -14,6 +14,7 @@ export async function requireSession() {
   if(!user||!sessionVersionMatches(user.isActive,user.sessionVersion,session.user.sessionVersion))redirect("/login");
   session.user.roles=user.roles.map(r=>r.role.name);
   session.user.permissions=[...new Set(user.roles.flatMap(r=>r.role.permissions.map(p=>p.permission.key)))];
+  session.user.employeeId=user.employeeId;
   return session;
 }
 
@@ -50,7 +51,7 @@ async function getAuthenticatedApiActor() {
   if(!user||!sessionVersionMatches(user.isActive,user.sessionVersion,session.user.sessionVersion))return {error:Response.json({error:"Sesi tidak berlaku"},{status:401})} as const;
   const permissions=[...new Set(user.roles.flatMap(r=>r.role.permissions.map(p=>p.permission.key)))];
   const roles=user.roles.map(r=>r.role.name);
-  Object.assign(session.user,{permissions,roles,organizationId:user.organizationId});
+  Object.assign(session.user,{permissions,roles,organizationId:user.organizationId,employeeId:user.employeeId});
   return { session } as const;
 }
 

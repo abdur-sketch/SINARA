@@ -1,0 +1,18 @@
+import { requireAnyPermission } from "@/lib/access";
+import { actorUnitId, attendanceReaderPermissions, employeeScope, jakartaDate } from "@/lib/attendance";
+import { db } from "@/lib/db";
+import { LeaveForm, LeaveTypeForm, ReviewActions } from "@/components/attendance-forms";
+
+export const dynamic = "force-dynamic";
+export default async function LeavePage() {
+  const { user } = await requireAnyPermission(attendanceReaderPermissions); const unitId = await actorUnitId(user.id); const scope = employeeScope(user, unitId); const canManage = user.permissions.includes("leave.manage"); const canReview = user.permissions.includes("leave.review");
+  const [rows, employees, leaveTypes, balances] = await Promise.all([
+    db.leaveRequest.findMany({ where: { organizationId: user.organizationId, employee: scope }, include: { employee: { include: { primaryUnit: { select: { name: true } } } }, leaveType: true, requestedBy: { select: { name: true } }, reviewedBy: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 100 }),
+    db.employee.findMany({ where: { ...scope, isActive: true }, select: { id: true, employeeNumber: true, fullName: true }, orderBy: { fullName: "asc" } }),
+    db.leaveType.findMany({ where: { organizationId: user.organizationId, isActive: true }, orderBy: { name: "asc" } }),
+    user.employeeId ? db.leaveBalance.findMany({ where: { employeeId: user.employeeId, year: Number(jakartaDate().slice(0,4)) }, include: { leaveType: true } }) : [],
+  ]);
+  const employeeOptions=employees.map(row=>({id:row.id,name:`${row.employeeNumber} · ${row.fullName}`})); const typeOptions=leaveTypes.map(row=>({id:row.id,name:row.name,hint:row.annualQuota===null?"tanpa kuota otomatis":`${row.annualQuota} hari/tahun${row.requiresAttachment?" · wajib lampiran":""}`}));
+  return <><div className="breadcrumb">Absensi / Cuti & izin</div><h1 className="page-title">Cuti, sakit & izin</h1><p className="page-subtitle">Hari libur dan hari nonkerja tidak dihitung sebagai pemakaian.</p><div className={canManage?"grid two-col":"grid"}>{user.permissions.includes("leave.create")&&<LeaveForm employees={employeeOptions} leaveTypes={typeOptions} canManage={canManage}/>} {canManage&&<LeaveTypeForm/>}</div>{balances.length>0&&<div className="grid stats attendance-stats" style={{marginTop:18}}>{balances.map(row=><section className="card" key={row.id}><div className="stat-label">Saldo {row.leaveType.name}</div><div className="stat-value">{row.allowance-row.used}</div><div className="stat-note">{row.used} dari {row.allowance} hari terpakai</div></section>)}</div>}
+    <section className="card" style={{marginTop:18}}><h2>Riwayat pengajuan</h2>{rows.length?<div className="table-wrap"><table><thead><tr><th>Pegawai</th><th>Jenis</th><th>Periode</th><th>Hari kerja</th><th>Alasan</th><th>Status</th><th>Keputusan</th></tr></thead><tbody>{rows.map(row=><tr key={row.id}><td><strong>{row.employee.fullName}</strong><br/>{row.employee.primaryUnit.name}</td><td>{row.leaveType.name}</td><td>{row.startDate.toLocaleDateString("id-ID")} – {row.endDate.toLocaleDateString("id-ID")}</td><td>{row.workDays}</td><td className="cell-wrap">{row.reason}<br/><small>oleh {row.requestedBy.name}</small></td><td><span className={`badge ${row.status==="APPROVED"?"badge-green":row.status==="PENDING"?"badge-warning":"badge-gray"}`}>{row.status}</span></td><td>{canReview&&row.status==="PENDING"&&row.requestedById!==user.id?<ReviewActions endpoint={`/api/attendance/leave/${row.id}/review`}/>:row.reviewedBy?.name??"—"}</td></tr>)}</tbody></table></div>:<div className="empty">Belum ada pengajuan.</div>}</section></>;
+}

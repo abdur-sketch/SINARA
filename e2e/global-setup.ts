@@ -15,6 +15,7 @@ export default async function globalSetup() {
   const passwordHash = await bcrypt.hash(process.env.E2E_ADMIN_PASSWORD!, 12);
   const recovery = await bcrypt.hash("RECOV-E2E-2026", 10);
   let compensationActorId = "";
+  let attendanceUserId = "";
   for (const [email, enrolled] of [[process.env.E2E_ADMIN_EMAIL!, true], [process.env.E2E_EMPLOYEE_EMAIL!, true], [process.env.E2E_COMPENSATION_EMAIL!, true], [`e2e-enroll-desktop-${process.env.E2E_RUN_ID}@example.test`, false], [`e2e-enroll-mobile-${process.env.E2E_RUN_ID}@example.test`, false]] as const) {
     const user = await db.user.upsert({
       where: { email },
@@ -22,8 +23,12 @@ export default async function globalSetup() {
       create: { organizationId: organization.id, email, name: "Administrator E2E Sintetis", passwordHash, mfaEnabled: enrolled, mfaSecretEncrypted: enrolled ? encryptSecret(E2E_TOTP_SECRET) : null, mfaRecoveryHashes: enrolled ? [recovery] : Prisma.DbNull },
     });
     if (email === process.env.E2E_COMPENSATION_EMAIL) compensationActorId = user.id;
+    if (email === process.env.E2E_EMPLOYEE_EMAIL) attendanceUserId = user.id;
     await db.userRole.upsert({ where: { userId_roleId: { userId: user.id, roleId: role.id } }, update: {}, create: { userId: user.id, roleId: role.id } });
   }
+  const attendanceUnit = await db.unit.findFirstOrThrow({ where: { organizationId: organization.id, code: "ADM" } });
+  const attendanceEmployee = await db.employee.upsert({ where: { organizationId_employeeNumber: { organizationId: organization.id, employeeNumber: "E2E-ATT-001" } }, update: { fullName: "Pegawai Absensi E2E", primaryUnitId: attendanceUnit.id, isActive: true }, create: { organizationId: organization.id, employeeNumber: "E2E-ATT-001", fullName: "Pegawai Absensi E2E", gender: "MALE", startDate: new Date("2026-01-01"), internalStatus: "TENDIK", primaryUnitId: attendanceUnit.id } });
+  await db.user.update({ where: { id: attendanceUserId }, data: { employeeId: attendanceEmployee.id } });
   const grade = await db.jobGrade.findFirstOrThrow({ where: { organizationId: organization.id, isActive: true }, orderBy: { level: "asc" } });
   await db.salaryPolicy.upsert({
     where: { organizationId_name_version: { organizationId: organization.id, name: "Kebijakan Sintetis E2E", version: 1 } },

@@ -10,6 +10,10 @@ async function main(){
   ["SMK Nurul Iman","SMK","EDUCATION"],["Pesantren Nurul Iman","PESANTREN","BOARDING"],["Administrasi Yayasan","ADM","CENTRAL_ADMIN"]
  ];
  for(const [name,code,type] of units)await db.unit.upsert({where:{organizationId_code:{organizationId:org.id,code}},update:{name,type},create:{organizationId:org.id,name,code,type}});
+ const adminUnit=await db.unit.findUniqueOrThrow({where:{organizationId_code:{organizationId:org.id,code:"ADM"}}});
+ await db.workSchedule.upsert({where:{organizationId_code:{organizationId:org.id,code:"REGULER"}},update:{name:"Jam kerja reguler",unitId:null,workDays:[1,2,3,4,5],startMinute:480,endMinute:960,breakMinutes:60,lateTolerance:10,isActive:true},create:{organizationId:org.id,code:"REGULER",name:"Jam kerja reguler",workDays:[1,2,3,4,5],startMinute:480,endMinute:960,breakMinutes:60,lateTolerance:10}});
+ await db.workSchedule.upsert({where:{organizationId_code:{organizationId:org.id,code:"ADM"}},update:{name:"Administrasi Yayasan",unitId:adminUnit.id,workDays:[1,2,3,4,5],startMinute:480,endMinute:960,breakMinutes:60,lateTolerance:10,isActive:true},create:{organizationId:org.id,unitId:adminUnit.id,code:"ADM",name:"Administrasi Yayasan",workDays:[1,2,3,4,5],startMinute:480,endMinute:960,breakMinutes:60,lateTolerance:10}});
+ for(const [code,name,annualQuota,requiresAttachment] of [["TAHUNAN","Cuti tahunan",12,false],["SAKIT","Sakit",null,true],["IZIN","Izin",null,false],["DINAS","Dinas luar",null,false]] as const)await db.leaveType.upsert({where:{organizationId_code:{organizationId:org.id,code}},update:{name,annualQuota,requiresAttachment,isActive:true},create:{organizationId:org.id,code,name,annualQuota,requiresAttachment}});
  const positions=[["Ketua Yayasan","KETUA"],["Kepala Unit","KEPALA_UNIT"],["Guru","GURU"],["Tenaga Kependidikan","TENDIK"],["Staf Administrasi","STAF_ADM"]];
  for(const [name,code] of positions)await db.position.upsert({where:{organizationId_code:{organizationId:org.id,code}},update:{name},create:{organizationId:org.id,name,code}});
  const permissionRows:Record<string,string>={};

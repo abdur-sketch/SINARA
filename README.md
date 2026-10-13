@@ -1,6 +1,6 @@
-# SINARA — Phase 2 Compensation Architecture
+# SINARA — Phase 3 Attendance, Leave & Compensation
 
-Standalone HR management and compensation-policy foundation for Yayasan Nurul Iman. Phase 2 adds configurable job grading, salary policy versioning, pay components, employee compensation proposals, multi-unit allocation, approval history, and a draft-only compensation simulator. It deliberately contains **no payroll processing**, no production deployment, and no SINURMAN integration.
+Standalone HR management foundation for Yayasan Nurul Iman. Phase 3 adds server-time attendance, effective work schedules, holidays, correction approval, leave/permission workflows, scoped reporting, and employee self-service on top of the Phase 2 compensation architecture. It deliberately contains **no payroll processing**, no biometric tracking, no production deployment, and no SINURMAN integration.
 
 ## Stack
 
@@ -25,7 +25,17 @@ Requirements: Node.js 20.9+ (Node 24 recommended), PostgreSQL 16, and npm. Docke
 6. Remove `BOOTSTRAP_ADMIN_PASSWORD` from `.env` after seeding.
 7. Start the app: `npm run dev`, then open `http://localhost:3000`.
 
-Never reuse production credentials or point `DATABASE_URL` at SINURMAN. The included database uses a dedicated `sinur_hrm_dev` database and port 5434.
+Never reuse production credentials or point `DATABASE_URL` at SINURMAN. The included database uses a dedicated `sinur_hrm_dev` database; use port 5432 for an existing local PostgreSQL installation or port 5434 for the provided Docker Compose service.
+
+## Attendance and leave
+
+- Administrators link a login account to exactly one employee from **Pengguna** before employee self-service is used.
+- Check-in and check-out use server time in `Asia/Jakarta`; clients cannot submit their own clock time.
+- Schedules are effective-dated, can be organization-wide or unit-specific, and reject overlapping employee assignments.
+- Attendance corrections and leave requests require a different reviewer; unit heads are restricted to their own unit.
+- Approved leave creates daily attendance statuses but never changes compensation or payroll.
+- Monthly CSV export follows the actor's organization/unit scope.
+- The initial free workflow is web/PWA only. Location tracking, face recognition, fingerprint devices, and automatic payroll deductions are intentionally excluded.
 
 ## Authorization
 

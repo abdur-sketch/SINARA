@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, UsersRound, Building2, Landmark, BriefcaseBusiness, UserCog, ShieldCheck, ScrollText, Settings, BadgeDollarSign } from "lucide-react";
+import { LayoutDashboard, UsersRound, Building2, Landmark, BriefcaseBusiness, UserCog, ShieldCheck, ScrollText, Settings, BadgeDollarSign, CalendarCheck } from "lucide-react";
 import { requireSession } from "@/lib/access";
 import { LogoutButton } from "@/components/logout-button";
 import type { PermissionKey } from "@/lib/permissions";
@@ -7,6 +7,7 @@ import type { PermissionKey } from "@/lib/permissions";
 const nav = [
   ["/dashboard","Dashboard",LayoutDashboard,[]], ["/employees","Pegawai",UsersRound,["employee.read","employee.self.read"]], ["/organization","Organisasi",Landmark,["organization.read"]],
   ["/units","Unit",Building2,["unit.read"]], ["/positions","Jabatan",BriefcaseBusiness,["position.read"]], ["/users","Pengguna",UserCog,["user.manage"]],
+  ["/attendance","Absensi",CalendarCheck,["attendance.read.own","attendance.read.unit","attendance.read.all"]],
   ["/compensation","Compensation",BadgeDollarSign,["compensation.grade.read","compensation.policy.read","compensation.component.read","compensation.proposal.create","compensation.proposal.review","compensation.simulation.run"]],
   ["/roles","Role & Akses",ShieldCheck,["role.manage"]], ["/audit-logs","Audit Log",ScrollText,["audit.read"]], ["/settings","Pengaturan",Settings,[]]
 ] as const;

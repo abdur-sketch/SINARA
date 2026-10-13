@@ -23,6 +23,7 @@ async function context(req: Request, params: Promise<{ id: string }>) {
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const value = await context(req, params); if ("error" in value) return value.error;
+  if (value.role.name === "PEGAWAI" && !value.user.employeeId) return Response.json({ error: "Tautkan akun ke data pegawai sebelum memberikan role PEGAWAI" }, { status: 409 });
   await db.$transaction([db.userRole.upsert({ where: { userId_roleId: { userId: value.user.id, roleId: value.role.id } }, create: { userId: value.user.id, roleId: value.role.id }, update: {} }), db.user.update({ where: { id: value.user.id }, data: { sessionVersion: { increment: 1 } } })]);
   await writeAudit({ organizationId: value.organizationId, actorId: value.actor.session.user.id, action: "USER_ROLE_ASSIGNED", entityType: "User", entityId: value.user.id, metadata: { roleId: value.role.id } });
   return Response.json({ ok: true });

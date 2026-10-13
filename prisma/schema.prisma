@@ -77,6 +77,31 @@ enum CompensationScenario {
   CUSTOM
 }
 
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  LEAVE
+  SICK
+  PERMISSION
+  OFFICIAL_DUTY
+  HOLIDAY
+}
+
+enum AttendanceSource {
+  WEB
+  ADMIN
+  IMPORT
+  DEVICE
+}
+
+enum AttendanceRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 model Organization {
   id                      String                   @id @default(uuid()) @db.Uuid
   name                    String
@@ -98,6 +123,12 @@ model Organization {
   compensationProposals   CompensationProposal[]
   compensationSimulations CompensationSimulation[]
   compensationApprovals   CompensationApproval[]
+  workSchedules           WorkSchedule[]
+  holidays                Holiday[]
+  attendanceRecords       AttendanceRecord[]
+  attendanceCorrections   AttendanceCorrection[]
+  leaveTypes              LeaveType[]
+  leaveRequests           LeaveRequest[]
 
   @@map("organizations")
 }
@@ -115,6 +146,7 @@ model Unit {
   primaryEmployees        Employee[]
   assignments             EmployeeAssignment[]
   compensationAllocations CompensationCostAllocation[]
+  workSchedules           WorkSchedule[]
 
   @@unique([organizationId, code])
   @@index([organizationId, isActive])
@@ -122,31 +154,36 @@ model Unit {
 }
 
 model Employee {
-  id                    String                 @id @default(uuid()) @db.Uuid
-  organizationId        String                 @map("organization_id") @db.Uuid
-  employeeNumber        String                 @map("employee_number")
-  fullName              String                 @map("full_name")
+  id                    String                   @id @default(uuid()) @db.Uuid
+  organizationId        String                   @map("organization_id") @db.Uuid
+  employeeNumber        String                   @map("employee_number")
+  fullName              String                   @map("full_name")
   gender                Gender
-  birthDate             DateTime?              @map("birth_date") @db.Date
+  birthDate             DateTime?                @map("birth_date") @db.Date
   email                 String?
   phone                 String?
   address               String?
-  lastEducation         String?                @map("last_education")
+  lastEducation         String?                  @map("last_education")
   competencies          String?
-  startDate             DateTime               @map("start_date") @db.Date
-  internalStatus        EmployeeInternalStatus @map("internal_status")
-  primaryUnitId         String                 @map("primary_unit_id") @db.Uuid
-  isActive              Boolean                @default(true) @map("is_active")
-  archivedAt            DateTime?              @map("archived_at")
-  createdAt             DateTime               @default(now()) @map("created_at")
-  updatedAt             DateTime               @updatedAt @map("updated_at")
-  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  primaryUnit           Unit                   @relation(fields: [primaryUnitId], references: [id], onDelete: Restrict)
+  startDate             DateTime                 @map("start_date") @db.Date
+  internalStatus        EmployeeInternalStatus   @map("internal_status")
+  primaryUnitId         String                   @map("primary_unit_id") @db.Uuid
+  isActive              Boolean                  @default(true) @map("is_active")
+  archivedAt            DateTime?                @map("archived_at")
+  createdAt             DateTime                 @default(now()) @map("created_at")
+  updatedAt             DateTime                 @updatedAt @map("updated_at")
+  organization          Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  primaryUnit           Unit                     @relation(fields: [primaryUnitId], references: [id], onDelete: Restrict)
   contracts             EmploymentContract[]
   assignments           EmployeeAssignment[]
   documents             EmployeeDocument[]
   user                  User?
   compensationProposals CompensationProposal[]
+  scheduleAssignments   WorkScheduleAssignment[]
+  attendanceRecords     AttendanceRecord[]
+  attendanceCorrections AttendanceCorrection[]
+  leaveBalances         LeaveBalance[]
+  leaveRequests         LeaveRequest[]
 
   @@unique([organizationId, employeeNumber])
   @@index([organizationId, isActive])
@@ -265,6 +302,11 @@ model User {
   createdSimulations     CompensationSimulation[] @relation("SimulationCreator")
   compensationApprovals  CompensationApproval[]   @relation("CompensationApprover")
   createdSalaryPolicies  SalaryPolicy[]           @relation("SalaryPolicyCreator")
+  manualAttendance       AttendanceRecord[]       @relation("AttendanceManualCreator")
+  requestedCorrections   AttendanceCorrection[]   @relation("AttendanceCorrectionRequester")
+  reviewedCorrections    AttendanceCorrection[]   @relation("AttendanceCorrectionReviewer")
+  requestedLeave         LeaveRequest[]           @relation("LeaveRequester")
+  reviewedLeave          LeaveRequest[]           @relation("LeaveReviewer")
 
   @@index([organizationId, isActive])
   @@map("users")
@@ -591,4 +633,173 @@ model CompensationApproval {
 
   @@index([organizationId, entityType, entityId, createdAt])
   @@map("compensation_approvals")
+}
+
+model WorkSchedule {
+  id                String                   @id @default(uuid()) @db.Uuid
+  organizationId    String                   @map("organization_id") @db.Uuid
+  unitId            String?                  @map("unit_id") @db.Uuid
+  code              String
+  name              String
+  timezone          String                   @default("Asia/Jakarta")
+  workDays          Int[]                    @map("work_days")
+  startMinute       Int                      @map("start_minute")
+  endMinute         Int                      @map("end_minute")
+  breakMinutes      Int                      @default(60) @map("break_minutes")
+  lateTolerance     Int                      @default(0) @map("late_tolerance")
+  isActive          Boolean                  @default(true) @map("is_active")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  unit              Unit?                    @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  assignments       WorkScheduleAssignment[]
+  attendanceRecords AttendanceRecord[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, unitId, isActive])
+  @@map("work_schedules")
+}
+
+model WorkScheduleAssignment {
+  id            String       @id @default(uuid()) @db.Uuid
+  employeeId    String       @map("employee_id") @db.Uuid
+  scheduleId    String       @map("schedule_id") @db.Uuid
+  effectiveFrom DateTime     @map("effective_from") @db.Date
+  effectiveTo   DateTime?    @map("effective_to") @db.Date
+  createdAt     DateTime     @default(now()) @map("created_at")
+  employee      Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  schedule      WorkSchedule @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+
+  @@unique([employeeId, effectiveFrom])
+  @@index([scheduleId, effectiveTo])
+  @@map("work_schedule_assignments")
+}
+
+model Holiday {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  date           DateTime     @db.Date
+  name           String
+  isCollective   Boolean      @default(false) @map("is_collective")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, date])
+  @@map("holidays")
+}
+
+model AttendanceRecord {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  organizationId      String                 @map("organization_id") @db.Uuid
+  employeeId          String                 @map("employee_id") @db.Uuid
+  scheduleId          String?                @map("schedule_id") @db.Uuid
+  date                DateTime               @db.Date
+  checkInAt           DateTime?              @map("check_in_at")
+  checkOutAt          DateTime?              @map("check_out_at")
+  status              AttendanceStatus       @default(PRESENT)
+  source              AttendanceSource       @default(WEB)
+  lateMinutes         Int                    @default(0) @map("late_minutes")
+  workMinutes         Int                    @default(0) @map("work_minutes")
+  notes               String?
+  manuallyCreatedById String?                @map("manually_created_by_id") @db.Uuid
+  createdAt           DateTime               @default(now()) @map("created_at")
+  updatedAt           DateTime               @updatedAt @map("updated_at")
+  organization        Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee            Employee               @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  schedule            WorkSchedule?          @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  manuallyCreatedBy   User?                  @relation("AttendanceManualCreator", fields: [manuallyCreatedById], references: [id], onDelete: SetNull)
+  corrections         AttendanceCorrection[]
+
+  @@unique([organizationId, employeeId, date])
+  @@index([organizationId, date, status])
+  @@map("attendance_records")
+}
+
+model AttendanceCorrection {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  organizationId     String                  @map("organization_id") @db.Uuid
+  recordId           String?                 @map("record_id") @db.Uuid
+  employeeId         String                  @map("employee_id") @db.Uuid
+  date               DateTime                @db.Date
+  proposedCheckInAt  DateTime?               @map("proposed_check_in_at")
+  proposedCheckOutAt DateTime?               @map("proposed_check_out_at")
+  reason             String
+  status             AttendanceRequestStatus @default(PENDING)
+  requestedById      String                  @map("requested_by_id") @db.Uuid
+  reviewedById       String?                 @map("reviewed_by_id") @db.Uuid
+  reviewerNotes      String?                 @map("reviewer_notes")
+  reviewedAt         DateTime?               @map("reviewed_at")
+  createdAt          DateTime                @default(now()) @map("created_at")
+  updatedAt          DateTime                @updatedAt @map("updated_at")
+  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  record             AttendanceRecord?       @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  employee           Employee                @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  requestedBy        User                    @relation("AttendanceCorrectionRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewedBy         User?                   @relation("AttendanceCorrectionReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, status, createdAt])
+  @@index([employeeId, date])
+  @@map("attendance_corrections")
+}
+
+model LeaveType {
+  id                 String         @id @default(uuid()) @db.Uuid
+  organizationId     String         @map("organization_id") @db.Uuid
+  code               String
+  name               String
+  annualQuota        Int?           @map("annual_quota")
+  requiresAttachment Boolean        @default(false) @map("requires_attachment")
+  isActive           Boolean        @default(true) @map("is_active")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+  organization       Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  balances           LeaveBalance[]
+  requests           LeaveRequest[]
+
+  @@unique([organizationId, code])
+  @@map("leave_types")
+}
+
+model LeaveBalance {
+  id          String    @id @default(uuid()) @db.Uuid
+  employeeId  String    @map("employee_id") @db.Uuid
+  leaveTypeId String    @map("leave_type_id") @db.Uuid
+  year        Int
+  allowance   Int
+  used        Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@map("leave_balances")
+}
+
+model LeaveRequest {
+  id             String                  @id @default(uuid()) @db.Uuid
+  organizationId String                  @map("organization_id") @db.Uuid
+  employeeId     String                  @map("employee_id") @db.Uuid
+  leaveTypeId    String                  @map("leave_type_id") @db.Uuid
+  startDate      DateTime                @map("start_date") @db.Date
+  endDate        DateTime                @map("end_date") @db.Date
+  workDays       Int                     @map("work_days")
+  reason         String
+  attachmentRef  String?                 @map("attachment_ref")
+  status         AttendanceRequestStatus @default(PENDING)
+  requestedById  String                  @map("requested_by_id") @db.Uuid
+  reviewedById   String?                 @map("reviewed_by_id") @db.Uuid
+  reviewerNotes  String?                 @map("reviewer_notes")
+  reviewedAt     DateTime?               @map("reviewed_at")
+  createdAt      DateTime                @default(now()) @map("created_at")
+  updatedAt      DateTime                @updatedAt @map("updated_at")
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee       Employee                @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  leaveType      LeaveType               @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  requestedBy    User                    @relation("LeaveRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewedBy     User?                   @relation("LeaveReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, status, startDate])
+  @@index([employeeId, startDate, endDate])
+  @@map("leave_requests")
 }

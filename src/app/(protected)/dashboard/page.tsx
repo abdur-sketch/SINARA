@@ -1,9 +1,11 @@
 import { db } from "@/lib/db";
-import { requirePermission } from "@/lib/access";
+import { requireSession } from "@/lib/access";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 export default async function DashboardPage(){
-  const {user}=await requirePermission("employee.read");
+  const {user}=await requireSession();
+  if(!user.permissions.includes("employee.read"))redirect("/attendance");
   const org=user.organizationId;
   const [total,active,statuses,units,positions,contracts,audits]=await Promise.all([
     db.employee.count({where:{organizationId:org}}), db.employee.count({where:{organizationId:org,isActive:true}}),
