@@ -10,14 +10,16 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --project=desktop && playwright test --project=mobile",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "security:reset-mfa": "tsx scripts/reset-mfa.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "5.2.2",
+    "@otplib/v12-adapter": "13.5.0",
     "@prisma/client": "6.12.0",
     "@radix-ui/react-slot": "1.2.4",
     "bcryptjs": "3.0.3",
@@ -29,6 +31,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-hook-form": "7.65.0",
+    "qrcode": "1.5.4",
     "zod": "4.1.12"
   },
   "devDependencies": {
@@ -37,6 +40,7 @@
     "@testing-library/react": "16.3.0",
     "@types/bcryptjs": "2.4.6",
     "@types/node": "24.10.0",
+    "@types/qrcode": "1.5.6",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
     "@tailwindcss/postcss": "4.3.3",

@@ -1,6 +1,6 @@
-# SINUR HRM — Phase 1
+# SINUR HRM — Phase 1.5
 
-Standalone HR management foundation for Yayasan Nurul Iman. Phase 1 contains authentication, default-deny RBAC, organization/unit/position masters, employee master, cross-unit assignments, private employee documents, dashboard, and audit logs. It deliberately contains **no payroll processing** and no SINURMAN integration.
+Standalone HR management foundation for Yayasan Nurul Iman. Phase 1.5 hardens authentication and administration while retaining the Phase 1 employee foundation. It deliberately contains **no payroll processing**, no production deployment, and no SINURMAN integration.
 
 ## Stack
 
@@ -15,7 +15,7 @@ Standalone HR management foundation for Yayasan Nurul Iman. Phase 1 contains aut
 
 Requirements: Node.js 20.9+ (Node 24 recommended), Docker, and npm.
 
-1. Copy `.env.example` to `.env` and generate a random `NEXTAUTH_SECRET` using `openssl rand -base64 32`.
+1. Copy `.env.example` to `.env`; generate separate random values for `NEXTAUTH_SECRET` and `MFA_ENCRYPTION_KEY` using `openssl rand -base64 32`.
 2. Put a development-only admin email and a unique 14+ character password in `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD`.
 3. Start the isolated database: `docker compose up -d postgres`.
 4. Apply versioned migrations: `npm run db:migrate`.
@@ -41,12 +41,18 @@ Every protected page requires a server session. API handlers independently requi
 ## Security notes
 
 - Passwords use bcrypt cost 12. Five failed attempts lock an account for 15 minutes.
-- Sessions use signed JWTs, HTTP-only SameSite cookies, an eight-hour maximum, and secure cookies in production.
-- Password reset tokens are random, stored only as SHA-256 hashes, single use, and expire after 30 minutes. Development delivery is logged locally; connect an approved email provider before staging.
-- Uploaded documents allow PDF/JPEG/PNG up to 5 MB, are written outside `public/`, and are downloaded only through an authenticated, organization-scoped route.
+- Privileged roles must enroll TOTP before receiving a session. Secrets use AES-256-GCM under a separate key; recovery codes are bcrypt hashes and single use. Sensitive administration requires MFA verified within ten minutes.
+- Sessions use signed JWTs, HTTP-only SameSite cookies, an eight-hour maximum, and `sessionVersion` revocation after password, account, role, or MFA changes.
+- Password reset tokens are random, stored only as SHA-256 hashes, single use, and expire after 30 minutes. Development delivery goes to an in-memory fake mailer and is never logged.
+- Login, MFA, reset, and administration limits use PostgreSQL-backed buckets shared by all app instances.
+- Uploaded documents allow PDF/JPEG/PNG up to 5 MB, validate magic bytes, are written outside `public/` with private permissions, and remain quarantined until authorized review. Only approved files can be downloaded.
+- The service worker caches only the public offline page and icon. It never stores API, authentication, protected-page, or document responses.
 - Audit metadata redacts keys containing password, token, secret, or content.
-- `organization_id` supports future isolation design but is not a claim of production-ready multi-tenancy.
-- MFA is represented in the user model but enrollment/challenge is not yet implemented; privileged staging accounts must not be activated until that gap is closed.
+- Every administration and employee lookup remains scoped by `organization_id`; automated IDOR tests cover read, edit, archive, document, and assignment paths.
+
+## MFA recovery
+
+Self-service MFA removal requires the current password plus a current TOTP or unused recovery code at `POST /api/auth/mfa/reset`; it revokes all existing sessions. If an administrator is locked out, an operator with local database and encryption-key access can calculate `MFA_RECOVERY_AUTH` as HMAC-SHA256 of `reset-mfa:<email>` using `MFA_ENCRYPTION_KEY`, then run `npm run security:reset-mfa -- --email user@example.test`. The CLI audits the recovery, clears MFA material, and increments the session version. Never paste the authorization value into tickets or commit it.
 
 ## Verification
 
@@ -59,7 +65,11 @@ npm run test:e2e
 npm audit
 ```
 
-Database-backed tests and authenticated E2E flows require the Docker database, migration, and seeded development admin.
+The shared-rate-limit integration test requires the isolated development PostgreSQL database. Run migrations first. No test uses production or SINURMAN data.
+
+## Remaining staging gates
+
+The fake mailer and quarantine scanner are deliberate development adapters. Before staging, connect an approved transactional mail provider and malware scanner/object store, exercise backup restoration, define secret rotation and monitoring, and repeat the security suite against an isolated staging database. Phase 1.5 does not authorize production deployment.
 
 ## Backup and recovery
 

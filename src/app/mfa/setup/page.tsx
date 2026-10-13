@@ -1,0 +1,2 @@
+import { MfaEnrollment } from "@/components/mfa-enrollment";
+export default function MfaSetupPage(){return <main style={{minHeight:"100vh",display:"grid",placeItems:"center",padding:24}}><div><div className="brand" style={{color:"#0b1f3a"}}><div className="brand-mark" style={{color:"white"}}>SN</div><div><strong>SINUR HRM</strong><small>Security setup</small></div></div><MfaEnrollment/></div></main>}

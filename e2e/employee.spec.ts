@@ -1,11 +1,12 @@
-import { test,expect } from "@playwright/test";
+import { test,expect } from "@playwright/test";import { Authenticator } from "@otplib/v12-adapter";import { E2E_TOTP_SECRET } from "./global-setup";
 
-test("employee CRUD, uniqueness, assignment, dan audit",async({page},testInfo)=>{
-  test.skip(testInfo.project.name!=="chromium"||!process.env.E2E_ADMIN_PASSWORD,"Database-backed desktop flow");
+test("employee CRUD, uniqueness, assignment, dan audit",async({page})=>{
   await page.goto("/login");
-  await page.getByLabel("Email").fill(process.env.E2E_ADMIN_EMAIL??"admin@example.test");
+  await page.getByLabel("Email").fill(process.env.E2E_EMPLOYEE_EMAIL!);
   await page.getByLabel("Kata sandi").fill(process.env.E2E_ADMIN_PASSWORD!);
-  await page.getByRole("button",{name:/Masuk/}).click();
+  await page.getByRole("button",{name:"Lanjutkan"}).click();
+  await page.getByLabel("Kode autentikator atau recovery").fill(new Authenticator().generate(E2E_TOTP_SECRET));
+  await page.getByRole("button",{name:"Verifikasi MFA"}).click();
   await expect(page).toHaveURL(/\/dashboard/);
   const options=await (await page.request.get("/api/master-options")).json();
   expect(options.units.length).toBeGreaterThan(1);expect(options.positions.length).toBeGreaterThan(0);

@@ -8,6 +8,8 @@ declare module "next-auth" {
       employeeId?: string | null;
       permissions: string[];
       roles: string[];
+      sessionVersion: number;
+      mfaVerifiedAt?: number | null;
       name?: string | null;
       email?: string | null;
     };
@@ -18,6 +20,7 @@ declare module "next-auth" {
     permissions: string[];
     roles: string[];
     sessionVersion: number;
+    mfaVerifiedAt?: number | null;
   }
 }
 
@@ -29,5 +32,6 @@ declare module "next-auth/jwt" {
     permissions: string[];
     roles: string[];
     sessionVersion: number;
+    mfaVerifiedAt?: number | null;
   }
 }
