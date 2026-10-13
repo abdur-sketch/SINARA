@@ -23,7 +23,27 @@ export async function requirePermission(permission: PermissionKey) {
   return session;
 }
 
+export async function requireAnyPermission(permissions: readonly PermissionKey[]) {
+  const session = await requireSession();
+  if (!permissions.some(permission => hasPermission(session.user.permissions, permission))) redirect("/forbidden");
+  return session;
+}
+
 export async function getApiActor(permission: PermissionKey) {
+  const actor = await getAuthenticatedApiActor();
+  if ("error" in actor) return actor;
+  if (!hasPermission(actor.session.user.permissions, permission)) return { error: new Response(JSON.stringify({ error: "Akses ditolak" }), { status: 403, headers: { "content-type": "application/json" } }) } as const;
+  return actor;
+}
+
+export async function getApiActorAny(permissions: readonly PermissionKey[]) {
+  const actor = await getAuthenticatedApiActor();
+  if ("error" in actor) return actor;
+  if (!permissions.some(permission => hasPermission(actor.session.user.permissions, permission))) return { error: new Response(JSON.stringify({ error: "Akses ditolak" }), { status: 403, headers: { "content-type": "application/json" } }) } as const;
+  return actor;
+}
+
+async function getAuthenticatedApiActor() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return { error: new Response(JSON.stringify({ error: "Tidak terautentikasi" }), { status: 401, headers: { "content-type": "application/json" } }) } as const;
   const user=await freshActor(session.user.id);
@@ -31,7 +51,6 @@ export async function getApiActor(permission: PermissionKey) {
   const permissions=[...new Set(user.roles.flatMap(r=>r.role.permissions.map(p=>p.permission.key)))];
   const roles=user.roles.map(r=>r.role.name);
   Object.assign(session.user,{permissions,roles,organizationId:user.organizationId});
-  if (!hasPermission(permissions, permission)) return { error: new Response(JSON.stringify({ error: "Akses ditolak" }), { status: 403, headers: { "content-type": "application/json" } }) } as const;
   return { session } as const;
 }
 

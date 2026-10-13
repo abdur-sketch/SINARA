@@ -2,11 +2,13 @@ import bcrypt from "bcryptjs";
 import { Authenticator } from "@otplib/v12-adapter";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { encryptSecret } from "../src/lib/security";
+import { prepareTestDatabase } from "../scripts/test-database";
 
 export const E2E_TOTP_SECRET = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
 const db = new PrismaClient();
 
 export default async function globalSetup() {
+  await prepareTestDatabase(true);
   const organization = await db.organization.findUnique({ where: { code: "YNI" } });
   if (!organization) throw new Error("Jalankan migrasi dan seed development sebelum E2E.");
   const role = await db.role.findUniqueOrThrow({ where: { organizationId_name: { organizationId: organization.id, name: "SUPER_ADMIN" } } });

@@ -1,6 +1,6 @@
-# SINUR HRM — Phase 1.5
+# SINARA — Phase 2 Compensation Architecture
 
-Standalone HR management foundation for Yayasan Nurul Iman. Phase 1.5 hardens authentication and administration while retaining the Phase 1 employee foundation. It deliberately contains **no payroll processing**, no production deployment, and no SINURMAN integration.
+Standalone HR management and compensation-policy foundation for Yayasan Nurul Iman. Phase 2 adds configurable job grading, salary policy versioning, pay components, employee compensation proposals, multi-unit allocation, approval history, and a draft-only compensation simulator. It deliberately contains **no payroll processing**, no production deployment, and no SINURMAN integration.
 
 ## Stack
 
@@ -13,11 +13,13 @@ Standalone HR management foundation for Yayasan Nurul Iman. Phase 1.5 hardens au
 
 ## Local development
 
-Requirements: Node.js 20.9+ (Node 24 recommended), Docker, and npm.
+Requirements: Node.js 20.9+ (Node 24 recommended), PostgreSQL 16, and npm. Docker is optional.
 
 1. Copy `.env.example` to `.env`; generate separate random values for `NEXTAUTH_SECRET` and `MFA_ENCRYPTION_KEY` using `openssl rand -base64 32`.
 2. Put a development-only admin email and a unique 14+ character password in `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD`.
-3. Start the isolated database: `docker compose up -d postgres`.
+3. Choose one local database path:
+   - Existing PostgreSQL: create/use `sinur_hrm_dev` and set port `5432` in `.env`.
+   - Docker Compose: run `docker compose up -d postgres` and keep port `5434` from `.env.example`.
 4. Apply versioned migrations: `npm run db:migrate`.
 5. Seed organization masters and the bootstrap administrator: `npm run db:seed`.
 6. Remove `BOOTSTRAP_ADMIN_PASSWORD` from `.env` after seeding.
@@ -65,7 +67,7 @@ npm run test:e2e
 npm audit
 ```
 
-The shared-rate-limit integration test requires the isolated development PostgreSQL database. Run migrations first. No test uses production or SINURMAN data.
+Vitest and Playwright automatically create unique temporary PostgreSQL schemas, migrate them, and remove them after the run. Test fixtures no longer enter the development schema. The test harness rejects non-local databases and any database name other than `sinur_hrm_dev`. No test uses production or SINURMAN data.
 
 ## Remaining staging gates
 
@@ -73,4 +75,6 @@ The fake mailer and quarantine scanner are deliberate development adapters. Befo
 
 ## Backup and recovery
 
-For local development, create an encrypted logical backup with `pg_dump` before schema changes and restore into a newly created development database with `pg_restore`. Do not commit dumps. Before staging, define retention, encryption keys, access owners, restore drills, RPO/RTO, and an approved off-machine storage destination. Production deployment is not authorized in Phase 1.
+Create a local logical backup with `npm run db:backup`. Dumps are written to ignored `backups/`. Verify the latest dump by restoring it into a temporary `sinur_hrm_restore_*` database with `npm run db:restore:verify`; the verification database is removed automatically. Set `LOCAL_POSTGRES_ADMIN_URL` when the operating-system PostgreSQL administrator is not available through the default local socket. Use `-- --file /path/to/file.dump --keep` only when an explicitly retained restore database is needed.
+
+Before staging, add encrypted off-machine storage, retention, access owners, restore drills, and agreed RPO/RTO. Production deployment remains unauthorized in Phase 2.

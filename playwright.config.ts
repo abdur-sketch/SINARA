@@ -1,12 +1,13 @@
 import { defineConfig,devices } from "@playwright/test";
-process.env.DATABASE_URL ||= "postgresql://sinur:change-me@localhost:5432/sinur_hrm_dev";
+import { testDatabaseUrl } from "./scripts/test-database";
+process.env.E2E_RUN_ID ||= Date.now().toString(36);
+process.env.DATABASE_URL = testDatabaseUrl("e2e",process.env.E2E_RUN_ID);
 process.env.NEXTAUTH_SECRET ||= "e2e-only-nextauth-secret-not-for-production";
 process.env.NEXTAUTH_URL ||= "http://127.0.0.1:3000";
 process.env.MFA_ENCRYPTION_KEY ||= Buffer.alloc(32, 9).toString("base64");
 process.env.MAILER_ADAPTER ||= "fake";
-process.env.E2E_RUN_ID ||= Date.now().toString(36);
 process.env.E2E_ADMIN_EMAIL ||= `e2e-auth-${process.env.E2E_RUN_ID}@example.test`;
 process.env.E2E_EMPLOYEE_EMAIL ||= `e2e-employee-${process.env.E2E_RUN_ID}@example.test`;
 process.env.E2E_COMPENSATION_EMAIL ||= `e2e-compensation-${process.env.E2E_RUN_ID}@example.test`;
 process.env.E2E_ADMIN_PASSWORD ||= "Synthetic E2E Password 2026!";
-export default defineConfig({testDir:"./e2e",globalSetup:"./e2e/global-setup.ts",fullyParallel:false,workers:1,use:{baseURL:"http://127.0.0.1:3000",trace:"on-first-retry",channel:"chrome"},projects:[{name:"desktop",use:{...devices["Desktop Chrome"]}},{name:"mobile",use:{...devices["Pixel 7"]}}],webServer:{command:"npm run dev",url:"http://127.0.0.1:3000/login",reuseExistingServer:false,timeout:120000}});
+export default defineConfig({testDir:"./e2e",globalSetup:"./e2e/global-setup.ts",globalTeardown:"./e2e/global-teardown.ts",fullyParallel:false,workers:1,use:{baseURL:"http://127.0.0.1:3000",trace:"on-first-retry",channel:"chrome"},projects:[{name:"desktop",use:{...devices["Desktop Chrome"]}},{name:"mobile",use:{...devices["Pixel 7"]}}],webServer:{command:"npm run dev",url:"http://127.0.0.1:3000/login",reuseExistingServer:false,timeout:120000}});
