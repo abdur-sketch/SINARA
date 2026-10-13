@@ -7,5 +7,6 @@ process.env.MAILER_ADAPTER ||= "fake";
 process.env.E2E_RUN_ID ||= Date.now().toString(36);
 process.env.E2E_ADMIN_EMAIL ||= `e2e-auth-${process.env.E2E_RUN_ID}@example.test`;
 process.env.E2E_EMPLOYEE_EMAIL ||= `e2e-employee-${process.env.E2E_RUN_ID}@example.test`;
+process.env.E2E_COMPENSATION_EMAIL ||= `e2e-compensation-${process.env.E2E_RUN_ID}@example.test`;
 process.env.E2E_ADMIN_PASSWORD ||= "Synthetic E2E Password 2026!";
 export default defineConfig({testDir:"./e2e",globalSetup:"./e2e/global-setup.ts",fullyParallel:false,workers:1,use:{baseURL:"http://127.0.0.1:3000",trace:"on-first-retry",channel:"chrome"},projects:[{name:"desktop",use:{...devices["Desktop Chrome"]}},{name:"mobile",use:{...devices["Pixel 7"]}}],webServer:{command:"npm run dev",url:"http://127.0.0.1:3000/login",reuseExistingServer:false,timeout:120000}});

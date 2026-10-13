@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { LayoutDashboard, UsersRound, Building2, Landmark, BriefcaseBusiness, UserCog, ShieldCheck, ScrollText, Settings } from "lucide-react";
+import { LayoutDashboard, UsersRound, Building2, Landmark, BriefcaseBusiness, UserCog, ShieldCheck, ScrollText, Settings, BadgeDollarSign } from "lucide-react";
 import { requireSession } from "@/lib/access";
 import { LogoutButton } from "@/components/logout-button";
 
 const nav = [
   ["/dashboard","Dashboard",LayoutDashboard], ["/employees","Pegawai",UsersRound], ["/organization","Organisasi",Landmark],
   ["/units","Unit",Building2], ["/positions","Jabatan",BriefcaseBusiness], ["/users","Pengguna",UserCog],
+  ["/compensation","Compensation",BadgeDollarSign],
   ["/roles","Role & Akses",ShieldCheck], ["/audit-logs","Audit Log",ScrollText], ["/settings","Pengaturan",Settings]
 ] as const;
 export async function AppShell({ children }: { children: React.ReactNode }) {

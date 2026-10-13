@@ -42,35 +42,79 @@ enum DocumentScanStatus {
   REJECTED
 }
 
+enum CompensationStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  ACTIVE
+  SUPERSEDED
+  ARCHIVED
+}
+
+enum PayComponentType {
+  BASE_SALARY
+  FIXED_ALLOWANCE
+  VARIABLE_ALLOWANCE
+  POSITION_ALLOWANCE
+  ADDITIONAL_DUTY
+  ATTENDANCE_INCENTIVE
+  PERFORMANCE_INCENTIVE
+  UNIT_OR_HOURLY_HONORARIUM
+  CORRECTION
+}
+
+enum CalculationMethod {
+  FIXED
+  PERCENTAGE
+  UNIT_RATE
+  MANUAL
+}
+
+enum CompensationScenario {
+  BASELINE
+  CONSERVATIVE
+  GROWTH
+  CUSTOM
+}
+
 model Organization {
-  id        String     @id @default(uuid()) @db.Uuid
-  name      String
-  code      String     @unique
-  isActive  Boolean    @default(true) @map("is_active")
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
-  units     Unit[]
-  employees Employee[]
-  positions Position[]
-  users     User[]
-  roles     Role[]
-  auditLogs AuditLog[]
+  id                      String                   @id @default(uuid()) @db.Uuid
+  name                    String
+  code                    String                   @unique
+  isActive                Boolean                  @default(true) @map("is_active")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  units                   Unit[]
+  employees               Employee[]
+  positions               Position[]
+  users                   User[]
+  roles                   Role[]
+  auditLogs               AuditLog[]
+  compensationFactors     CompensationFactor[]
+  jobGrades               JobGrade[]
+  jobEvaluations          JobEvaluation[]
+  salaryPolicies          SalaryPolicy[]
+  payComponents           PayComponent[]
+  compensationProposals   CompensationProposal[]
+  compensationSimulations CompensationSimulation[]
+  compensationApprovals   CompensationApproval[]
 
   @@map("organizations")
 }
 
 model Unit {
-  id               String               @id @default(uuid()) @db.Uuid
-  organizationId   String               @map("organization_id") @db.Uuid
-  name             String
-  code             String
-  type             String
-  isActive         Boolean              @default(true) @map("is_active")
-  createdAt        DateTime             @default(now()) @map("created_at")
-  updatedAt        DateTime             @updatedAt @map("updated_at")
-  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  primaryEmployees Employee[]
-  assignments      EmployeeAssignment[]
+  id                      String                       @id @default(uuid()) @db.Uuid
+  organizationId          String                       @map("organization_id") @db.Uuid
+  name                    String
+  code                    String
+  type                    String
+  isActive                Boolean                      @default(true) @map("is_active")
+  createdAt               DateTime                     @default(now()) @map("created_at")
+  updatedAt               DateTime                     @updatedAt @map("updated_at")
+  organization            Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  primaryEmployees        Employee[]
+  assignments             EmployeeAssignment[]
+  compensationAllocations CompensationCostAllocation[]
 
   @@unique([organizationId, code])
   @@index([organizationId, isActive])
@@ -78,30 +122,31 @@ model Unit {
 }
 
 model Employee {
-  id             String                 @id @default(uuid()) @db.Uuid
-  organizationId String                 @map("organization_id") @db.Uuid
-  employeeNumber String                 @map("employee_number")
-  fullName       String                 @map("full_name")
-  gender         Gender
-  birthDate      DateTime?              @map("birth_date") @db.Date
-  email          String?
-  phone          String?
-  address        String?
-  lastEducation  String?                @map("last_education")
-  competencies   String?
-  startDate      DateTime               @map("start_date") @db.Date
-  internalStatus EmployeeInternalStatus @map("internal_status")
-  primaryUnitId  String                 @map("primary_unit_id") @db.Uuid
-  isActive       Boolean                @default(true) @map("is_active")
-  archivedAt     DateTime?              @map("archived_at")
-  createdAt      DateTime               @default(now()) @map("created_at")
-  updatedAt      DateTime               @updatedAt @map("updated_at")
-  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  primaryUnit    Unit                   @relation(fields: [primaryUnitId], references: [id], onDelete: Restrict)
-  contracts      EmploymentContract[]
-  assignments    EmployeeAssignment[]
-  documents      EmployeeDocument[]
-  user           User?
+  id                    String                 @id @default(uuid()) @db.Uuid
+  organizationId        String                 @map("organization_id") @db.Uuid
+  employeeNumber        String                 @map("employee_number")
+  fullName              String                 @map("full_name")
+  gender                Gender
+  birthDate             DateTime?              @map("birth_date") @db.Date
+  email                 String?
+  phone                 String?
+  address               String?
+  lastEducation         String?                @map("last_education")
+  competencies          String?
+  startDate             DateTime               @map("start_date") @db.Date
+  internalStatus        EmployeeInternalStatus @map("internal_status")
+  primaryUnitId         String                 @map("primary_unit_id") @db.Uuid
+  isActive              Boolean                @default(true) @map("is_active")
+  archivedAt            DateTime?              @map("archived_at")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  primaryUnit           Unit                   @relation(fields: [primaryUnitId], references: [id], onDelete: Restrict)
+  contracts             EmploymentContract[]
+  assignments           EmployeeAssignment[]
+  documents             EmployeeDocument[]
+  user                  User?
+  compensationProposals CompensationProposal[]
 
   @@unique([organizationId, employeeNumber])
   @@index([organizationId, isActive])
@@ -136,6 +181,7 @@ model Position {
   updatedAt      DateTime             @updatedAt @map("updated_at")
   organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   assignments    EmployeeAssignment[]
+  jobEvaluations JobEvaluation[]
 
   @@unique([organizationId, code])
   @@index([organizationId, isActive])
@@ -186,32 +232,39 @@ model EmployeeDocument {
 }
 
 model User {
-  id                  String             @id @default(uuid()) @db.Uuid
-  organizationId      String             @map("organization_id") @db.Uuid
-  employeeId          String?            @unique @map("employee_id") @db.Uuid
-  email               String             @unique
-  name                String
-  passwordHash        String             @map("password_hash")
-  isActive            Boolean            @default(true) @map("is_active")
-  mfaEnabled          Boolean            @default(false) @map("mfa_enabled")
-  mfaSecretEncrypted  String?            @map("mfa_secret_encrypted")
-  mfaPendingEncrypted String?            @map("mfa_pending_encrypted")
-  mfaRecoveryHashes   Json?              @map("mfa_recovery_hashes")
-  mfaFailedAttempts   Int                @default(0) @map("mfa_failed_attempts")
-  mfaLockedUntil      DateTime?          @map("mfa_locked_until")
-  failedLoginAttempts Int                @default(0) @map("failed_login_attempts")
-  lockedUntil         DateTime?          @map("locked_until")
-  passwordResetHash   String?            @map("password_reset_hash")
-  passwordResetExpiry DateTime?          @map("password_reset_expiry")
-  sessionVersion      Int                @default(1) @map("session_version")
-  createdAt           DateTime           @default(now()) @map("created_at")
-  updatedAt           DateTime           @updatedAt @map("updated_at")
-  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  employee            Employee?          @relation(fields: [employeeId], references: [id], onDelete: SetNull)
-  roles               UserRole[]
-  auditLogs           AuditLog[]         @relation("ActorAuditLogs")
-  authChallenges      AuthChallenge[]
-  reviewedDocuments   EmployeeDocument[] @relation("DocumentReviewer")
+  id                     String                   @id @default(uuid()) @db.Uuid
+  organizationId         String                   @map("organization_id") @db.Uuid
+  employeeId             String?                  @unique @map("employee_id") @db.Uuid
+  email                  String                   @unique
+  name                   String
+  passwordHash           String                   @map("password_hash")
+  isActive               Boolean                  @default(true) @map("is_active")
+  mfaEnabled             Boolean                  @default(false) @map("mfa_enabled")
+  mfaSecretEncrypted     String?                  @map("mfa_secret_encrypted")
+  mfaPendingEncrypted    String?                  @map("mfa_pending_encrypted")
+  mfaRecoveryHashes      Json?                    @map("mfa_recovery_hashes")
+  mfaFailedAttempts      Int                      @default(0) @map("mfa_failed_attempts")
+  mfaLockedUntil         DateTime?                @map("mfa_locked_until")
+  failedLoginAttempts    Int                      @default(0) @map("failed_login_attempts")
+  lockedUntil            DateTime?                @map("locked_until")
+  passwordResetHash      String?                  @map("password_reset_hash")
+  passwordResetExpiry    DateTime?                @map("password_reset_expiry")
+  sessionVersion         Int                      @default(1) @map("session_version")
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @updatedAt @map("updated_at")
+  organization           Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee               Employee?                @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  roles                  UserRole[]
+  auditLogs              AuditLog[]               @relation("ActorAuditLogs")
+  authChallenges         AuthChallenge[]
+  reviewedDocuments      EmployeeDocument[]       @relation("DocumentReviewer")
+  createdJobEvaluations  JobEvaluation[]          @relation("JobEvaluationCreator")
+  reviewedJobEvaluations JobEvaluation[]          @relation("JobEvaluationReviewer")
+  proposedCompensations  CompensationProposal[]   @relation("CompensationProposer")
+  reviewedCompensations  CompensationProposal[]   @relation("CompensationReviewer")
+  createdSimulations     CompensationSimulation[] @relation("SimulationCreator")
+  compensationApprovals  CompensationApproval[]   @relation("CompensationApprover")
+  createdSalaryPolicies  SalaryPolicy[]           @relation("SalaryPolicyCreator")
 
   @@index([organizationId, isActive])
   @@map("users")
@@ -306,4 +359,236 @@ model AuditLog {
   @@index([organizationId, createdAt])
   @@index([actorId, createdAt])
   @@map("audit_logs")
+}
+
+model CompensationFactor {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  key            String
+  name           String
+  weight         Decimal      @db.Decimal(5, 2)
+  isActive       Boolean      @default(true) @map("is_active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, key])
+  @@map("compensation_factors")
+}
+
+model JobGrade {
+  id             String                 @id @default(uuid()) @db.Uuid
+  organizationId String                 @map("organization_id") @db.Uuid
+  code           String
+  name           String
+  level          Int
+  minimumScore   Decimal                @map("minimum_score") @db.Decimal(6, 2)
+  maximumScore   Decimal                @map("maximum_score") @db.Decimal(6, 2)
+  isActive       Boolean                @default(true) @map("is_active")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  evaluations    JobEvaluation[]
+  salaryScales   SalaryScale[]
+  proposals      CompensationProposal[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, level])
+  @@index([organizationId, isActive])
+  @@map("job_grades")
+}
+
+model JobEvaluation {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String             @map("organization_id") @db.Uuid
+  positionId     String             @map("position_id") @db.Uuid
+  jobGradeId     String?            @map("job_grade_id") @db.Uuid
+  responsibility Int
+  competency     Int
+  complexity     Int
+  impact         Int
+  independence   Int
+  weightedScore  Decimal            @map("weighted_score") @db.Decimal(6, 2)
+  status         CompensationStatus @default(DRAFT)
+  reviewerNotes  String?            @map("reviewer_notes")
+  createdById    String             @map("created_by_id") @db.Uuid
+  reviewedById   String?            @map("reviewed_by_id") @db.Uuid
+  reviewedAt     DateTime?          @map("reviewed_at")
+  effectiveDate  DateTime           @map("effective_date") @db.Date
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  position       Position           @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  jobGrade       JobGrade?          @relation(fields: [jobGradeId], references: [id], onDelete: Restrict)
+  createdBy      User               @relation("JobEvaluationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy     User?              @relation("JobEvaluationReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, positionId, effectiveDate])
+  @@map("job_evaluations")
+}
+
+model SalaryPolicy {
+  id                String                   @id @default(uuid()) @db.Uuid
+  organizationId    String                   @map("organization_id") @db.Uuid
+  name              String
+  version           Int
+  periodStart       DateTime                 @map("period_start") @db.Date
+  periodEnd         DateTime?                @map("period_end") @db.Date
+  effectiveDate     DateTime                 @map("effective_date") @db.Date
+  status            CompensationStatus       @default(DRAFT)
+  scopeKey          String                   @default("ORGANIZATION") @map("scope_key")
+  minimumWageConfig Json?                    @map("minimum_wage_config")
+  changeNotes       String?                  @map("change_notes")
+  createdById       String                   @map("created_by_id") @db.Uuid
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy         User                     @relation("SalaryPolicyCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  scales            SalaryScale[]
+  proposals         CompensationProposal[]
+  simulations       CompensationSimulation[]
+
+  @@unique([organizationId, name, version])
+  @@index([organizationId, status, effectiveDate])
+  @@map("salary_policies")
+}
+
+model SalaryScale {
+  id         String       @id @default(uuid()) @db.Uuid
+  policyId   String       @map("policy_id") @db.Uuid
+  jobGradeId String       @map("job_grade_id") @db.Uuid
+  minimum    Decimal      @db.Decimal(18, 2)
+  midpoint   Decimal      @db.Decimal(18, 2)
+  maximum    Decimal      @db.Decimal(18, 2)
+  currency   String       @default("IDR")
+  basisNotes String?      @map("basis_notes")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+  policy     SalaryPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  jobGrade   JobGrade     @relation(fields: [jobGradeId], references: [id], onDelete: Restrict)
+
+  @@unique([policyId, jobGradeId])
+  @@map("salary_scales")
+}
+
+model PayComponent {
+  id             String                     @id @default(uuid()) @db.Uuid
+  organizationId String                     @map("organization_id") @db.Uuid
+  code           String
+  name           String
+  type           PayComponentType
+  method         CalculationMethod
+  defaultValue   Decimal?                   @map("default_value") @db.Decimal(18, 2)
+  effectiveDate  DateTime                   @map("effective_date") @db.Date
+  isActive       Boolean                    @default(true) @map("is_active")
+  legalNotes     String?                    @map("legal_notes")
+  createdAt      DateTime                   @default(now()) @map("created_at")
+  updatedAt      DateTime                   @updatedAt @map("updated_at")
+  organization   Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  proposalItems  CompensationProposalItem[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, isActive, effectiveDate])
+  @@map("pay_components")
+}
+
+model CompensationProposal {
+  id              String                       @id @default(uuid()) @db.Uuid
+  organizationId  String                       @map("organization_id") @db.Uuid
+  employeeId      String                       @map("employee_id") @db.Uuid
+  jobGradeId      String                       @map("job_grade_id") @db.Uuid
+  salaryPolicyId  String                       @map("salary_policy_id") @db.Uuid
+  salaryPlacement Decimal                      @map("salary_placement") @db.Decimal(18, 2)
+  effectiveDate   DateTime                     @map("effective_date") @db.Date
+  reason          String
+  status          CompensationStatus           @default(DRAFT)
+  proposedById    String                       @map("proposed_by_id") @db.Uuid
+  reviewedById    String?                      @map("reviewed_by_id") @db.Uuid
+  reviewedAt      DateTime?                    @map("reviewed_at")
+  idempotencyKey  String                       @map("idempotency_key")
+  createdAt       DateTime                     @default(now()) @map("created_at")
+  updatedAt       DateTime                     @updatedAt @map("updated_at")
+  organization    Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee        Employee                     @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  jobGrade        JobGrade                     @relation(fields: [jobGradeId], references: [id], onDelete: Restrict)
+  salaryPolicy    SalaryPolicy                 @relation(fields: [salaryPolicyId], references: [id], onDelete: Restrict)
+  proposedBy      User                         @relation("CompensationProposer", fields: [proposedById], references: [id], onDelete: Restrict)
+  reviewedBy      User?                        @relation("CompensationReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  items           CompensationProposalItem[]
+  allocations     CompensationCostAllocation[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, employeeId, effectiveDate])
+  @@map("compensation_proposals")
+}
+
+model CompensationProposalItem {
+  id             String               @id @default(uuid()) @db.Uuid
+  proposalId     String               @map("proposal_id") @db.Uuid
+  payComponentId String               @map("pay_component_id") @db.Uuid
+  amount         Decimal              @db.Decimal(18, 2)
+  quantity       Decimal              @default(1) @db.Decimal(10, 2)
+  notes          String?
+  proposal       CompensationProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  payComponent   PayComponent         @relation(fields: [payComponentId], references: [id], onDelete: Restrict)
+
+  @@unique([proposalId, payComponentId])
+  @@map("compensation_proposal_items")
+}
+
+model CompensationCostAllocation {
+  id           String               @id @default(uuid()) @db.Uuid
+  proposalId   String               @map("proposal_id") @db.Uuid
+  unitId       String               @map("unit_id") @db.Uuid
+  percentage   Decimal              @db.Decimal(5, 2)
+  periodStart  DateTime             @map("period_start") @db.Date
+  periodEnd    DateTime?            @map("period_end") @db.Date
+  isIncomplete Boolean              @default(false) @map("is_incomplete")
+  proposal     CompensationProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  unit         Unit                 @relation(fields: [unitId], references: [id], onDelete: Restrict)
+
+  @@unique([proposalId, unitId, periodStart])
+  @@map("compensation_cost_allocations")
+}
+
+model CompensationSimulation {
+  id                String               @id @default(uuid()) @db.Uuid
+  organizationId    String               @map("organization_id") @db.Uuid
+  salaryPolicyId    String?              @map("salary_policy_id") @db.Uuid
+  name              String
+  scenario          CompensationScenario
+  periodStart       DateTime             @map("period_start") @db.Date
+  periodEnd         DateTime             @map("period_end") @db.Date
+  assumptions       Json
+  results           Json
+  totalBaseSalary   Decimal              @map("total_base_salary") @db.Decimal(18, 2)
+  totalAllowances   Decimal              @map("total_allowances") @db.Decimal(18, 2)
+  totalCompensation Decimal              @map("total_compensation") @db.Decimal(18, 2)
+  employerCost      Decimal              @map("employer_cost") @db.Decimal(18, 2)
+  idempotencyKey    String               @map("idempotency_key")
+  createdById       String               @map("created_by_id") @db.Uuid
+  createdAt         DateTime             @default(now()) @map("created_at")
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  salaryPolicy      SalaryPolicy?        @relation(fields: [salaryPolicyId], references: [id], onDelete: Restrict)
+  createdBy         User                 @relation("SimulationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, createdAt])
+  @@map("compensation_simulations")
+}
+
+model CompensationApproval {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  entityType     String       @map("entity_type")
+  entityId       String       @map("entity_id")
+  action         String
+  notes          String?
+  actorId        String       @map("actor_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  actor          User         @relation("CompensationApprover", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, entityType, entityId, createdAt])
+  @@map("compensation_approvals")
 }

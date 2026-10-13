@@ -7,5 +7,5 @@ export default function proxy(request: NextRequest, event: NextFetchEvent) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/employees/:path*", "/organization/:path*", "/units/:path*", "/positions/:path*", "/users/:path*", "/roles/:path*", "/audit-logs/:path*", "/settings/:path*"]
+  matcher: ["/dashboard/:path*", "/employees/:path*", "/organization/:path*", "/units/:path*", "/positions/:path*", "/users/:path*", "/roles/:path*", "/audit-logs/:path*", "/settings/:path*", "/compensation/:path*"]
 };
